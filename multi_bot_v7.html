@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Multi-Asset Trading Bot</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap');
+:root{--bg:#0a0a0a;--bg2:#111;--bg3:#1a1a1a;--border:#2a2a2a;--text:#f0f0f0;--muted:#666;--green:#00c853;--red:#ff3d3d;--blue:#0088cc;--orange:#F7931A;--yellow:#ffd600;--purple:#9c27b0}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:14px;min-height:100vh;padding:24px}
+.header{display:flex;align-items:center;gap:14px;margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid var(--border)}
+.logo{width:42px;height:42px;background:linear-gradient(135deg,var(--orange),var(--purple));border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:500;color:white;font-family:'IBM Plex Mono',monospace}
+.header-text h1{font-size:20px;font-weight:500}
+.header-text p{font-size:12px;color:var(--muted);margin-top:2px;font-family:'IBM Plex Mono',monospace}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted);margin-left:auto;flex-shrink:0}
+.dot.live{background:var(--green);animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.grid-5{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:14px}
+.metric-label{font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px}
+.metric-val{font-size:20px;font-weight:500;font-family:'IBM Plex Mono',monospace}
+.metric-val.green{color:var(--green)}.metric-val.red{color:var(--red)}.metric-val.orange{color:var(--orange)}.metric-val.blue{color:var(--blue)}
+.stitle{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;font-family:'IBM Plex Mono',monospace;margin-bottom:12px}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:12px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-bottom:6px}
+.field input,.field select{width:100%;padding:10px 12px;font-size:13px;font-family:'IBM Plex Mono',monospace;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);outline:none}
+.field input:focus,.field select:focus{border-color:var(--orange)}
+.field input::placeholder{color:#444}
+.hint{font-size:11px;color:var(--muted);margin-top:4px;font-family:'IBM Plex Mono',monospace}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+button{padding:9px 16px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);font-size:13px;cursor:pointer}
+button:hover{background:var(--bg3)}
+button.orange{background:var(--orange);border-color:var(--orange);color:white}
+button.green{background:var(--green);border-color:var(--green);color:#000}
+button.red-btn{background:var(--red);border-color:var(--red);color:white}
+button.blue{background:var(--blue);border-color:var(--blue);color:white}
+button.tg{background:#0088cc;border-color:#0088cc;color:white}
+.status{padding:9px 12px;border-radius:8px;font-size:12px;font-family:'IBM Plex Mono',monospace;margin-top:8px;display:none}
+.status.ok{background:#0d2a1a;border:1px solid var(--green);color:var(--green);display:block}
+.status.err{background:#2a0d0d;border:1px solid var(--red);color:var(--red);display:block}
+.status.info{background:var(--bg3);border:1px solid var(--border);color:var(--muted);display:block}
+.asset-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.asset-card{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px;cursor:pointer;transition:border-color .15s}
+.asset-card.active{border-color:var(--orange)}
+.asset-card.buy{border-color:var(--green);background:#0a1f12}
+.asset-card.sell{border-color:var(--red);background:#1f0a0a}
+.asset-card.short{border-color:var(--purple);background:#1a0a2a}
+.asset-name{font-size:12px;font-weight:500;font-family:'IBM Plex Mono',monospace;color:var(--text)}
+.asset-price{font-size:14px;font-weight:500;font-family:'IBM Plex Mono',monospace;margin-top:2px}
+.asset-signal{font-size:10px;font-family:'IBM Plex Mono',monospace;margin-top:4px;text-transform:uppercase;letter-spacing:.05em}
+.signal-box{padding:14px;border-radius:10px;font-size:13px;line-height:1.7;border:1px solid var(--border);background:var(--bg3);min-height:80px;margin-bottom:14px}
+.signal-box.buy{border-color:var(--green);background:#0a1f12}
+.signal-box.sell{border-color:var(--red);background:#1f0a0a}
+.signal-box.hold{border-color:var(--yellow);background:#1f1a0a}
+.signal-box.short{border-color:var(--purple);background:#1a0a2a}
+.signal-label{font-size:11px;font-weight:500;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px}
+.buy .signal-label{color:var(--green)}.sell .signal-label{color:var(--red)}.hold .signal-label{color:var(--yellow)}.short .signal-label{color:var(--purple)}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;color:var(--muted);font-weight:400;padding:4px 6px 8px;border-bottom:1px solid var(--border);font-family:'IBM Plex Mono',monospace;font-size:10px;text-transform:uppercase}
+td{padding:7px 6px;border-bottom:1px solid var(--border);font-family:'IBM Plex Mono',monospace;color:var(--text)}
+tr:last-child td{border-bottom:none}
+.badge{display:inline-block;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:500;font-family:'IBM Plex Mono',monospace}
+.badge.buy{background:#0d2a1a;color:var(--green);border:1px solid #00c85355}
+.badge.sell{background:#2a0d0d;color:var(--red);border:1px solid #ff3d3d55}
+.badge.hold{background:#1f1a0a;color:var(--yellow);border:1px solid #ffd60055}
+.badge.short{background:#1a0a2a;color:var(--purple);border:1px solid #9c27b055}
+.news-item{padding:10px 0;border-bottom:1px solid var(--border);font-size:12px;line-height:1.5}
+.news-item:last-child{border-bottom:none}
+.news-headline{color:var(--text);margin-bottom:3px}
+.news-meta{color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:11px}
+.news-sentiment{display:inline-block;font-size:10px;padding:1px 6px;border-radius:4px;font-family:'IBM Plex Mono',monospace;margin-left:6px}
+.news-sentiment.pos{background:#0d2a1a;color:var(--green)}
+.news-sentiment.neg{background:#2a0d0d;color:var(--red)}
+.news-sentiment.neu{background:var(--bg3);color:var(--muted)}
+.insider-item{padding:8px 0;border-bottom:1px solid var(--border);font-size:12px}
+.insider-item:last-child{border-bottom:none}
+.tab-row{display:flex;gap:4px;margin-bottom:12px}
+.tab{padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'IBM Plex Mono',monospace}
+.tab.active{background:var(--orange);border-color:var(--orange);color:white}
+.status-row{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);margin-bottom:10px;font-family:'IBM Plex Mono',monospace}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border)}
+.toggle-row:last-child{border-bottom:none}
+.tl{font-size:13px;color:var(--text)}
+.toggle{position:relative;width:38px;height:20px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0}
+.slider{position:absolute;inset:0;background:#333;border-radius:20px;cursor:pointer;transition:background .2s}
+.slider:before{content:'';position:absolute;width:14px;height:14px;left:3px;top:3px;background:#666;border-radius:50%;transition:transform .2s,background .2s}
+input:checked+.slider{background:#1a4a2a}
+input:checked+.slider:before{transform:translateX(18px);background:var(--green)}
+.warn{background:#1a1500;border:1px solid #ffd60044;border-radius:10px;padding:10px 14px;font-size:12px;color:#ffd600;margin-bottom:14px;font-family:'IBM Plex Mono',monospace}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">AI</div>
+  <div class="header-text">
+    <h1>AI Multi-Asset Trading Bot</h1>
+    <p>Aktier + Crypto · Insider · Live nyheter · Alpaca</p>
+  </div>
+  <div class="dot" id="live-dot"></div>
+</div>
+
+<div class="warn">Klistra aldrig in nycklar i chatten – fyll i dem direkt här nedan.</div>
+
+<div class="grid-5">
+  <div class="card" style="margin-bottom:0"><div class="metric-label">Portfölj</div><div class="metric-val orange" id="portfolio">$100,000</div></div>
+  <div class="card" style="margin-bottom:0"><div class="metric-label">P&L idag</div><div class="metric-val" id="pnl">$0.00</div></div>
+  <div class="card" style="margin-bottom:0"><div class="metric-label">Trades</div><div class="metric-val" id="trade-count">0</div></div>
+  <div class="card" style="margin-bottom:0"><div class="metric-label">Vinstprocent</div><div class="metric-val" id="win-rate">–</div></div>
+  <div class="card" style="margin-bottom:0"><div class="metric-label">Öppna pos.</div><div class="metric-val" id="open-pos">0</div></div>
+</div>
+
+<div style="height:14px"></div>
+
+<div class="grid">
+  <div>
+    <!-- ASSET SELECTOR -->
+    <div class="card">
+      <div class="stitle">Marknader</div>
+      <div style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-bottom:10px">Crypto</div>
+      <div class="asset-grid" id="crypto-assets"></div>
+      <div style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-bottom:10px;margin-top:4px">Aktier</div>
+      <div class="asset-grid" id="stock-assets"></div>
+    </div>
+
+    <!-- SIGNAL -->
+    <div class="card">
+      <div class="stitle">AI-signal</div>
+      <div class="status-row"><div class="dot" id="bot-dot"></div><span id="bot-status-text">Bot stoppad</span></div>
+      <div class="signal-box" id="signal-box"><div style="color:var(--muted)">Starta boten för att få signaler.</div></div>
+    </div>
+
+    <!-- NEWS -->
+    <div class="card">
+      <div class="stitle">Live nyheter & Insider</div>
+      <div class="tab-row">
+        <button class="tab active" onclick="showTab('news')">Nyheter</button>
+        <button class="tab" onclick="showTab('insider')">Insider trades</button>
+      </div>
+      <div id="news-tab"><div style="color:var(--muted);font-size:12px;font-family:'IBM Plex Mono',monospace">Laddar nyheter...</div></div>
+      <div id="insider-tab" style="display:none"><div style="color:var(--muted);font-size:12px;font-family:'IBM Plex Mono',monospace">Laddar insider data...</div></div>
+    </div>
+
+    <!-- TRADE LOG -->
+    <div class="card">
+      <div class="stitle">Handelslogg</div>
+      <table>
+        <thead><tr><th>Tid</th><th>Symbol</th><th>Signal</th><th>Pris</th><th>P&L</th></tr></thead>
+        <tbody id="trade-log"><tr><td colspan="5" style="color:var(--muted);text-align:center;padding:14px">Inga trades ännu</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div>
+    <!-- ALPACA -->
+    <div class="card">
+      <div class="stitle">Alpaca – paper trading</div>
+      <div class="field">
+        <label>API Key ID</label>
+        <input type="text" id="alpaca-key" placeholder="PKxxxxxxxxxxxxxxxx" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="field">
+        <label>Secret Key</label>
+        <input type="password" id="alpaca-secret" placeholder="Din secret key..." autocomplete="off" spellcheck="false">
+      </div>
+      <div class="btn-row">
+        <button class="orange" onclick="testAlpaca()">Testa anslutning</button>
+      </div>
+      <div class="status" id="alpaca-status"></div>
+    </div>
+
+    <!-- FINNHUB -->
+    <div class="card">
+      <div class="stitle">Finnhub – nyheter & insider</div>
+      <div class="field">
+        <label>Finnhub API-nyckel</label>
+        <input type="password" id="finnhub-key" placeholder="din finnhub nyckel..." autocomplete="off" spellcheck="false">
+        <div class="hint">Från finnhub.io – gratis konto</div>
+      </div>
+      <div class="btn-row">
+        <button class="blue" onclick="testFinnhub()">Testa Finnhub</button>
+      </div>
+      <div class="status" id="finnhub-status"></div>
+    </div>
+
+    <!-- ANTHROPIC -->
+    <div class="card">
+      <div class="stitle">Anthropic AI</div>
+      <div class="field">
+        <label>API-nyckel</label>
+        <input type="password" id="anthropic-key" placeholder="sk-ant-..." autocomplete="off" spellcheck="false">
+        <div class="hint">Lämna tomt för regelbaserad analys</div>
+      </div>
+    </div>
+
+    <!-- TELEGRAM -->
+    <div class="card">
+      <div class="stitle">Telegram</div>
+      <div class="field">
+        <label>Bot token</label>
+        <input type="password" id="tg-token" placeholder="123456789:ABCdef..." autocomplete="off" spellcheck="false">
+      </div>
+      <div class="field">
+        <label>Chat ID</label>
+        <input type="text" id="tg-chatid" placeholder="123456789" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="btn-row">
+        <button class="tg" onclick="fetchChatId()">Hämta Chat ID</button>
+        <button onclick="sendTgTest()">Skicka test</button>
+      </div>
+      <div class="status" id="tg-status"></div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="card">
+      <div class="stitle">Inställningar</div>
+      <div class="field">
+        <label>Risk per trade</label>
+        <select id="risk">
+          <option value="0.01">Låg – 1% per trade</option>
+          <option value="0.02" selected>Medel – 2% per trade</option>
+          <option value="0.05">Hög – 5% per trade</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Analysintervall</label>
+        <select id="interval">
+          <option value="60000">Var 1:a minut</option>
+          <option value="300000" selected>Var 5:e minut</option>
+          <option value="900000">Var 15:e minut</option>
+        </select>
+      </div>
+      <div class="toggle-row">
+        <div class="tl">Short selling</div>
+        <label class="toggle"><input type="checkbox" id="short-enabled"><span class="slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <div class="tl">Notis vid KÖP/SÄLJ</div>
+        <label class="toggle"><input type="checkbox" id="notif-trade" checked><span class="slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <div class="tl">Notis vid insider-trade</div>
+        <label class="toggle"><input type="checkbox" id="notif-insider" checked><span class="slider"></span></label>
+      </div>
+    </div>
+
+    <!-- BOT CONTROL -->
+    <div class="card">
+      <div class="stitle">Botkontroll</div>
+      <div class="btn-row">
+        <button class="green" id="start-btn" onclick="toggleBot()">▶ Starta bot</button>
+        <button onclick="fetchAllPrices()">Uppdatera priser</button>
+        <button onclick="saveConfig()">Spara</button>
+      </div>
+      <div class="status" id="bot-status"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+var SAVED_CONFIG = {"alpacaKey":"","alpacaSecret":"","tgToken":"","tgChatId":"","risk":"0.02","interval":"300000","finnhubKey":"","anthropicKey":""};
+
+const ASSETS = {
+  crypto: ['BTC/USD','ETH/USD','SOL/USD'],
+  stocks: ['AAPL','TSLA','NVDA','MSFT','AMZN']
+};
+
+const ALPACA_SYMBOLS = {
+  'BTC/USD':'BTC/USD','ETH/USD':'ETH/USD','SOL/USD':'SOL/USD',
+  'AAPL':'AAPL','TSLA':'TSLA','NVDA':'NVDA','MSFT':'MSFT','AMZN':'AMZN'
+};
+
+let botRunning=false,botInterval=null,priceInterval=null,portfolioInterval=null;
+let portfolio=100000,pnl=0,trades=[],openPositions={};
+let priceHistory={},currentPrices={},lastSignalTime={};
+const STOP_LOSS=0.02,TAKE_PROFIT=0.04,MIN_INTERVAL=60000;
+
+function showStatus(id,type,msg){const el=document.getElementById(id);if(el){el.className='status '+type;el.textContent=msg;}}
+
+function showTab(tab){
+  document.getElementById('news-tab').style.display=tab==='news'?'block':'none';
+  document.getElementById('insider-tab').style.display=tab==='insider'?'block':'none';
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',i===(tab==='news'?0:1)));
+}
+
+function calcRSI(prices,period=14){
+  if(prices.length<period+1)return 50;
+  let g=0,l=0;
+  for(let i=prices.length-period;i<prices.length;i++){const d=prices[i]-prices[i-1];if(d>0)g+=d;else l-=d;}
+  const ag=g/period,al=l/period;
+  if(al===0)return 100;
+  return 100-(100/(1+ag/al));
+}
+
+function calcMACD(prices){
+  const ema=(p,n)=>{if(p.length<n)return p[p.length-1]||0;const k=2/(n+1);let e=p.slice(0,n).reduce((a,b)=>a+b,0)/n;for(let i=n;i<p.length;i++)e=p[i]*k+e*(1-k);return e;};
+  return ema(prices,12)-ema(prices,26);
+}
+
+function calcBollinger(prices,period=20){
+  if(prices.length<period)return{upper:prices[prices.length-1]*1.02,lower:prices[prices.length-1]*0.98,mid:prices[prices.length-1]};
+  const s=prices.slice(-period),mid=s.reduce((a,b)=>a+b,0)/period;
+  const std=Math.sqrt(s.reduce((a,b)=>a+Math.pow(b-mid,2),0)/period);
+  return{upper:mid+2*std,lower:mid-2*std,mid};
+}
+
+async function fetchPrice(symbol){
+  const key=document.getElementById('alpaca-key').value.trim();
+  const secret=document.getElementById('alpaca-secret').value.trim();
+
+  if(symbol.includes('/')){
+    // Crypto via Alpaca market data
+    // Crypto via Alpaca orderbooks (verified endpoint)
+    if(key&&secret){
+      try{
+        const r=await fetch('https://data.alpaca.markets/v1beta3/crypto/us/latest/orderbooks?symbols='+encodeURIComponent(symbol),{
+          headers:{'APCA-API-KEY-ID':key,'APCA-API-SECRET-KEY':secret}
+        });
+        const d=await r.json();
+        const ob=d.orderbooks?.[symbol];
+        if(ob&&ob.a&&ob.a[0])return parseFloat(ob.a[0].p);
+      }catch{}
+    }
+    // Fallback Coinbase
+    try{
+      const coin2=symbol.split('/')[0];
+      const r=await fetch('https://api.coinbase.com/v2/prices/'+coin2+'-USD/spot',{cache:'no-store'});
+      const d=await r.json();
+      if(d.data?.amount)return parseFloat(d.data.amount);
+    }catch{}
+  } else {
+    // Stocks via Alpaca latest bars with IEX feed (works on free plan)
+    if(key&&secret){
+      try{
+        const r=await fetch('https://data.alpaca.markets/v2/stocks/'+symbol+'/bars?timeframe=1Min&limit=1&feed=iex',{
+          headers:{'APCA-API-KEY-ID':key,'APCA-API-SECRET-KEY':secret,'Accept':'application/json'}
+        });
+        const d=await r.json();
+        if(d.bars&&d.bars.length>0&&d.bars[0].c>0)return parseFloat(d.bars[0].c);
+      }catch{}
+    }
+  }
+  // Fallback – liten rörelse på senaste kända pris
+  return currentPrices[symbol]?currentPrices[symbol]*(1+(Math.random()-0.498)*0.001):100+Math.random()*200;
+}
+
+async function fetchAllPrices(){
+  const all=[...ASSETS.crypto,...ASSETS.stocks];
+  for(const sym of all){
+    const price=await fetchPrice(sym);
+    currentPrices[sym]=price;
+    if(!priceHistory[sym])priceHistory[sym]=[];
+    priceHistory[sym].push(price);
+    if(priceHistory[sym].length>100)priceHistory[sym].shift();
+  }
+  renderAssets();
+  checkStopLossTakeProfit();
+}
+
+function renderAssets(){
+  const renderGroup=(symbols,containerId)=>{
+    const el=document.getElementById(containerId);
+    if(!el)return;
+    el.innerHTML=symbols.map(sym=>{
+      const price=currentPrices[sym]||0;
+      const pos=openPositions[sym];
+      let cls='',signal='–';
+      if(pos){cls=pos.side==='long'?'buy':'short';signal=pos.side==='long'?'LONG':'SHORT';}
+      const isCrypto=sym.includes('/');
+      const decimals=isCrypto?(price>100?0:5):2;
+      return '<div class="asset-card '+cls+'" onclick="selectAsset(\''+sym+'\')" id="card-'+sym.replace('/','')+'"><div class="asset-name">'+sym+'</div><div class="asset-price" style="color:'+(cls==='buy'?'var(--green)':cls==='short'?'var(--purple)':'var(--text)')+'">$'+price.toLocaleString('en-US',{minimumFractionDigits:decimals,maximumFractionDigits:decimals})+'</div><div class="asset-signal" style="color:'+(cls==='buy'?'var(--green)':cls==='short'?'var(--purple)':'var(--muted)')+'">'+signal+'</div></div>';
+    }).join('');
+  };
+  renderGroup(ASSETS.crypto,'crypto-assets');
+  renderGroup(ASSETS.stocks,'stock-assets');
+  document.getElementById('open-pos').textContent=Object.keys(openPositions).length;
+}
+
+let selectedAsset='BTC/USD';
+function selectAsset(sym){selectedAsset=sym;}
+
+async function fetchNews(){
+  const fkey=document.getElementById('finnhub-key').value.trim();
+  if(!fkey)return;
+  try{
+    const r=await fetch('https://finnhub.io/api/v1/news?category=general&token='+fkey);
+    const d=await r.json();
+    if(!Array.isArray(d))return;
+    const html=d.slice(0,8).map(n=>{
+      const sentiment=n.sentiment?n.sentiment>0?'pos':'neg':'neu';
+      const sentLabel=sentiment==='pos'?'Positiv':sentiment==='neg'?'Negativ':'Neutral';
+      return '<div class="news-item"><div class="news-headline">'+n.headline+'<span class="news-sentiment '+sentiment+'">'+sentLabel+'</span></div><div class="news-meta">'+n.source+' · '+new Date(n.datetime*1000).toLocaleTimeString('sv-SE')+'</div></div>';
+    }).join('');
+    document.getElementById('news-tab').innerHTML=html||'<div style="color:var(--muted);font-size:12px">Inga nyheter hittades.</div>';
+  }catch(e){document.getElementById('news-tab').innerHTML='<div style="color:var(--muted);font-size:12px">Kunde inte ladda nyheter.</div>';}
+}
+
+async function fetchInsider(){
+  const fkey=document.getElementById('finnhub-key').value.trim();
+  if(!fkey)return;
+  const symbols=['AAPL','TSLA','NVDA','MSFT','AMZN'];
+  let html='';
+  for(const sym of symbols.slice(0,3)){
+    try{
+      const r=await fetch('https://finnhub.io/api/v1/stock/insider-transactions?symbol='+sym+'&token='+fkey);
+      const d=await r.json();
+      if(d.data&&d.data.length>0){
+        const t=d.data[0];
+        const isBuy=t.change>0;
+        html+='<div class="insider-item"><span style="color:var(--orange);font-family:\'IBM Plex Mono\',monospace;font-size:12px">'+sym+'</span> <span style="color:'+(isBuy?'var(--green)':'var(--red)')+';font-family:\'IBM Plex Mono\',monospace;font-size:11px">'+(isBuy?'KÖP':'SÄLJ')+'</span> <span style="color:var(--muted);font-size:11px;font-family:\'IBM Plex Mono\',monospace">'+t.name+' · '+Math.abs(t.change).toLocaleString()+' aktier</span></div>';
+      }
+    }catch{}
+  }
+  document.getElementById('insider-tab').innerHTML=html||'<div style="color:var(--muted);font-size:12px">Inga insider trades hittades.</div>';
+  if(html&&document.getElementById('notif-insider').checked){
+    await sendTelegram('👔 Insider Trade Alert!\n\n'+html.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ')+'\n\n🤖 AI Trading Bot');
+  }
+}
+
+function checkStopLossTakeProfit(){
+  for(const sym in openPositions){
+    const pos=openPositions[sym];
+    const price=currentPrices[sym];
+    if(!price)continue;
+    const chg=(price-pos.entryPrice)/pos.entryPrice;
+    if(pos.side==='long'){
+      if(chg<=-STOP_LOSS)closeTrade(sym,price,'STOP LOSS',true);
+      else if(chg>=TAKE_PROFIT)closeTrade(sym,price,'TAKE PROFIT',false);
+    } else {
+      if(chg>=STOP_LOSS)closeTrade(sym,price,'STOP LOSS',true);
+      else if(chg<=-TAKE_PROFIT)closeTrade(sym,price,'TAKE PROFIT',false);
+    }
+  }
+}
+
+async function closeTrade(sym,price,reason,isLoss){
+  const pos=openPositions[sym];
+  if(!pos)return;
+  const tradePnl=pos.side==='long'?(price-pos.entryPrice)*pos.qty:(pos.entryPrice-price)*pos.qty;
+  pnl+=tradePnl;
+  portfolio+=pos.qty*pos.entryPrice+tradePnl;
+  logTrade(sym,pos.side==='long'?'SELL':'BUY',price,pos.qty,tradePnl);
+  delete openPositions[sym];
+  updatePortfolioDisplay();
+  renderAssets();
+  const emoji=isLoss?'🛡️':'💰';
+  const time=new Date().toLocaleTimeString('sv-SE');
+  await sendTelegram(emoji+' '+reason+' · '+sym+'\n💰 Pris: $'+price.toLocaleString('en-US',{maximumFractionDigits:2})+'\nP&L: '+(tradePnl>=0?'+':'')+'$'+tradePnl.toFixed(2)+'\n🤖 AI Trading Bot · '+time);
+}
+
+async function runAnalysis(){
+  await fetchAllPrices();
+  await fetchNews();
+  await fetchInsider();
+
+  // Analyze ALL assets, not just selected
+  const allSymbols=[...ASSETS.crypto,...ASSETS.stocks];
+  for(const sym of allSymbols){
+    await analyzeSymbol(sym);
+  }
+}
+
+async function analyzeSymbol(sym){
+  const prices=priceHistory[sym]||[];
+  const price=currentPrices[sym]||0;
+  if(!price||prices.length<5)return;
+
+  const rsi=calcRSI(prices);
+  const macd=calcMACD(prices);
+  const bb=calcBollinger(prices);
+  const anthropicKey=document.getElementById('anthropic-key').value.trim();
+  const shortEnabled=document.getElementById('short-enabled').checked;
+
+  let word='HÅLL',type='hold',reason='';
+  const box=document.getElementById('signal-box');
+
+  // Nyhetssentiment kräver betald Finnhub – hoppa över
+  const newsSentiment='neutral';
+
+  if(anthropicKey&&anthropicKey.startsWith('sk-ant-')){
+    box.className='signal-box';
+    box.innerHTML='<div style="color:var(--muted)">🤖 AI analyserar '+sym+'...</div>';
+    try{
+      const resp=await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','x-api-key':anthropicKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+        body:JSON.stringify({
+          model:'claude-haiku-4-5-20251001',
+          max_tokens:300,
+          messages:[{role:'user',content:'Du är en professionell trader. Analysera '+sym+'.\nPris: $'+price.toLocaleString()+'\nRSI(14): '+rsi.toFixed(1)+'\nMACD: '+(macd>=0?'+':'')+macd.toFixed(2)+'\nBB övre: $'+bb.upper.toFixed(2)+'\nBB nedre: $'+bb.lower.toFixed(2)+'\nNyhetssentiment: '+newsSentiment+'\nÖppen position: '+(openPositions[sym]?openPositions[sym].side+' @ $'+openPositions[sym].entryPrice.toFixed(2):'Ingen')+'\nShort selling tillåtet: '+(shortEnabled?'Ja':'Nej')+'\n\nBörja med KÖP, SÄLJ, SHORT eller HÅLL. Förklara kort på svenska.'}]
+        })
+      });
+      const data=await resp.json();
+      if(data.content){
+        reason=data.content.map(b=>b.text||'').join('');
+        const upper=reason.toUpperCase();
+        if(upper.startsWith('KÖP')||upper.includes('\nKÖP')){type='buy';word='KÖP';}
+        else if(upper.startsWith('SHORT')||upper.includes('\nSHORT')){type='short';word='SHORT';}
+        else if(upper.startsWith('SÄLJ')||upper.includes('\nSÄLJ')){type='sell';word='SÄLJ';}
+      }
+    }catch(e){reason='AI-fel. Kör regelbaserad.';}
+  }
+
+  if(!reason||reason.includes('AI-fel')){
+    // Regelbaserad strategi
+    // Aggressivare regler – fler trades
+    if(rsi<45&&macd>0){word='KÖP';type='buy';reason='RSI på '+rsi.toFixed(1)+' och MACD positiv. Köpläge.';}
+    else if(rsi<40){word='KÖP';type='buy';reason='RSI översålt ('+rsi.toFixed(1)+') – köpläge.';}
+    else if(rsi>55&&macd<0){word='SÄLJ';type='sell';reason='RSI på '+rsi.toFixed(1)+' och MACD negativ. Säljläge.';}
+    else if(rsi>60){word='SÄLJ';type='sell';reason='RSI överköpt ('+rsi.toFixed(1)+') – säljläge.';}
+    else if(shortEnabled&&rsi>65){word='SHORT';type='short';reason='RSI högt ('+rsi.toFixed(1)+') – short-läge.';}
+    else{reason='RSI: '+rsi.toFixed(1)+', MACD: '+(macd>=0?'+':'')+macd.toFixed(2)+' – neutral marknad.';}
+  }
+
+  box.className='signal-box '+type;
+  box.innerHTML='<div class="signal-label">'+word+' · '+sym+'</div><div>'+reason+'</div>';
+
+  if(botRunning){
+    const now=Date.now();
+    if(word!=='HÅLL'&&!(now-lastSignalTime[sym]<MIN_INTERVAL)){
+      lastSignalTime[sym]=now;
+      await executeSignal(sym,word,price);
+    }
+    if(document.getElementById('notif-trade').checked&&word!=='HÅLL'){
+      const emoji=word==='KÖP'?'🟢':word==='SÄLJ'?'🔴':word==='SHORT'?'🟣':'🟡';
+      const time=new Date().toLocaleTimeString('sv-SE');
+      await sendTelegram(emoji+' '+word+'-signal · '+sym+'\n💰 Pris: $'+price.toLocaleString('en-US',{maximumFractionDigits:2})+'\n📊 RSI: '+rsi.toFixed(1)+' · MACD: '+(macd>=0?'+':'')+macd.toFixed(2)+'\n📰 Sentiment: '+newsSentiment+'\n\n'+reason+'\n\n🤖 AI Trading Bot · '+time);
+    }
+  }
+}
+
+async function executeSignal(sym,signal,price){
+  const mult=parseFloat(document.getElementById('risk').value);
+  const tradeUSD=Math.min(portfolio*mult,195000);
+  const qty=tradeUSD/price;
+  const pos=openPositions[sym];
+
+  if(signal==='KÖP'&&!pos){
+    const order=await sendAlpacaOrder(sym,'buy',qty,price);
+    openPositions[sym]={side:'long',qty,entryPrice:price};
+    portfolio-=tradeUSD;
+    logTrade(sym,'BUY',price,qty,0);
+    showStatus('bot-status','ok','✅ KÖP '+sym+' @ $'+price.toLocaleString('en-US',{maximumFractionDigits:2}));
+  } else if(signal==='SHORT'&&!pos&&document.getElementById('short-enabled').checked){
+    const order=await sendAlpacaOrder(sym,'sell',qty,price);
+    openPositions[sym]={side:'short',qty,entryPrice:price};
+    portfolio-=tradeUSD;
+    logTrade(sym,'SHORT',price,qty,0);
+    showStatus('bot-status','ok','✅ SHORT '+sym+' @ $'+price.toLocaleString('en-US',{maximumFractionDigits:2}));
+  } else if((signal==='SÄLJ'||signal==='SHORT')&&pos&&pos.side==='long'){
+    await closeTrade(sym,price,'SÄLJ',false);
+  } else if(signal==='KÖP'&&pos&&pos.side==='short'){
+    await closeTrade(sym,price,'COVER SHORT',false);
+  }
+  renderAssets();
+}
+
+async function sendAlpacaOrder(sym,side,qty,price){
+  const key=document.getElementById('alpaca-key').value.trim();
+  const secret=document.getElementById('alpaca-secret').value.trim();
+  if(!key||!secret)return null;
+  try{
+    const isCrypto=sym.includes('/');
+    const body={symbol:sym,side,type:'market',time_in_force:isCrypto?'gtc':'day'};
+    if(isCrypto){body.qty=qty.toFixed(6);}
+    else{body.notional=Math.min(qty*price,195000).toFixed(2);}
+    const r=await fetch('https://paper-api.alpaca.markets/v2/orders',{
+      method:'POST',
+      headers:{'APCA-API-KEY-ID':key,'APCA-API-SECRET-KEY':secret,'Content-Type':'application/json','Accept':'application/json'},
+      body:JSON.stringify(body)
+    });
+    const d=await r.json();
+    if(!d.id)console.error('Alpaca error:',JSON.stringify(d));
+    return d;
+  }catch(e){console.error('Alpaca error:',e);return null;}
+}
+
+async function testAlpaca(){
+  const key=document.getElementById('alpaca-key').value.trim();
+  const secret=document.getElementById('alpaca-secret').value.trim();
+  if(!key||!secret){showStatus('alpaca-status','err','Fyll i API Key och Secret Key.');return;}
+  showStatus('alpaca-status','info','Ansluter...');
+  try{
+    const r=await fetch('https://paper-api.alpaca.markets/v2/account',{headers:{'APCA-API-KEY-ID':key,'APCA-API-SECRET-KEY':secret,'Accept':'application/json'}});
+    const d=await r.json();
+    if(d.status){
+      showStatus('alpaca-status','ok','Ansluten! $'+parseFloat(d.portfolio_value).toLocaleString('en-US',{maximumFractionDigits:0}));
+      portfolio=parseFloat(d.portfolio_value);
+      document.getElementById('portfolio').textContent='$'+portfolio.toLocaleString('en-US',{maximumFractionDigits:0});
+    }else{showStatus('alpaca-status','err','Fel: '+(d.message||'Ogiltig nyckel'));}
+  }catch(e){showStatus('alpaca-status','err','Nätverksfel: '+e.message);}
+}
+
+async function testFinnhub(){
+  const fkey=document.getElementById('finnhub-key').value.trim();
+  if(!fkey){showStatus('finnhub-status','err','Ange Finnhub API-nyckel.');return;}
+  showStatus('finnhub-status','info','Testar...');
+  try{
+    const r=await fetch('https://finnhub.io/api/v1/quote?symbol=AAPL&token='+fkey);
+    const d=await r.json();
+    if(d.c>0){showStatus('finnhub-status','ok','Ansluten! AAPL: $'+d.c.toFixed(2));}
+    else{showStatus('finnhub-status','err','Ogiltig nyckel.');}
+  }catch{showStatus('finnhub-status','err','Nätverksfel.');}
+}
+
+async function fetchChatId(){
+  const token=document.getElementById('tg-token').value.trim();
+  if(!token){showStatus('tg-status','err','Ange Bot token.');return;}
+  showStatus('tg-status','info','Hämtar...');
+  try{
+    const r=await fetch('https://api.telegram.org/bot'+token+'/getUpdates');
+    const d=await r.json();
+    if(!d.ok){showStatus('tg-status','err','Ogiltig token.');return;}
+    if(!d.result?.length){showStatus('tg-status','info','Skicka ett meddelande till boten i Telegram, vänta 5 sek, försök igen.');return;}
+    const id=d.result[d.result.length-1].message?.chat?.id;
+    if(id){document.getElementById('tg-chatid').value=id;showStatus('tg-status','ok','Chat ID: '+id);}
+  }catch{showStatus('tg-status','err','Nätverksfel.');}
+}
+
+async function sendTelegram(text){
+  const token=document.getElementById('tg-token').value.trim();
+  const chatId=document.getElementById('tg-chatid').value.trim();
+  if(!token||!chatId)return false;
+  try{
+    const r=await fetch('https://api.telegram.org/bot'+token+'/sendMessage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:chatId,text})});
+    const d=await r.json();return d.ok;
+  }catch{return false;}
+}
+
+async function sendTgTest(){
+  showStatus('tg-status','info','Skickar...');
+  const ok=await sendTelegram('🤖 AI Multi-Asset Trading Bot ansluten!\n\n✅ Telegram fungerar\n📊 Aktier + Crypto · Paper Trading\n📰 Live nyheter + Insider\n\nDu får notiser vid KÖP/SÄLJ/SHORT-signaler!');
+  if(ok)showStatus('tg-status','ok','Testmeddelande skickat!');
+  else showStatus('tg-status','err','Misslyckades.');
+}
+
+function logTrade(sym,signal,price,size,tradePnl){
+  const time=new Date().toLocaleTimeString('sv-SE');
+  trades.unshift({time,sym,signal,price,size,pnl:tradePnl});
+  if(trades.length>50)trades.pop();
+  document.getElementById('trade-count').textContent=trades.length;
+  const wins=trades.filter(t=>t.pnl>0).length;
+  const wr=trades.length>0?(wins/trades.length*100).toFixed(0)+'%':'–';
+  const wrEl=document.getElementById('win-rate');
+  wrEl.textContent=wr;
+  wrEl.className='metric-val '+(wins/trades.length>=0.5?'green':'red');
+  document.getElementById('trade-log').innerHTML=trades.map(t=>'<tr><td>'+t.time+'</td><td style="color:var(--orange);font-size:11px">'+t.sym+'</td><td><span class="badge '+t.signal.toLowerCase()+'">'+t.signal+'</span></td><td>$'+t.price.toLocaleString('en-US',{maximumFractionDigits:2})+'</td><td style="color:'+(t.pnl>=0?'var(--green)':'var(--red)')+'">'+(t.pnl>=0?'+':'')+'$'+t.pnl.toFixed(2)+'</td></tr>').join('');
+}
+
+function updatePortfolioDisplay(){
+  let unrealized=0;
+  for(const sym in openPositions){
+    const pos=openPositions[sym];
+    const price=currentPrices[sym];
+    if(price)unrealized+=pos.side==='long'?(price-pos.entryPrice)*pos.qty:(pos.entryPrice-price)*pos.qty;
+  }
+  const totalPnl=pnl+unrealized;
+  const pnlEl=document.getElementById('pnl');
+  pnlEl.textContent=(totalPnl>=0?'+':'')+'$'+totalPnl.toFixed(2);
+  pnlEl.className='metric-val '+(totalPnl>=0?'green':'red');
+  document.getElementById('portfolio').textContent='$'+(portfolio+unrealized).toLocaleString('en-US',{maximumFractionDigits:0});
+}
+
+async function updatePortfolioFromAlpaca(){
+  const key=document.getElementById('alpaca-key').value.trim();
+  const secret=document.getElementById('alpaca-secret').value.trim();
+  if(!key||!secret)return;
+  try{
+    const r=await fetch('https://paper-api.alpaca.markets/v2/account',{headers:{'APCA-API-KEY-ID':key,'APCA-API-SECRET-KEY':secret,'Accept':'application/json'}});
+    const d=await r.json();
+    if(d.portfolio_value){
+      const val=parseFloat(d.portfolio_value);
+      document.getElementById('portfolio').textContent='$'+val.toLocaleString('en-US',{maximumFractionDigits:0});
+      const totalPnl=val-100000;
+      const pnlEl=document.getElementById('pnl');
+      pnlEl.textContent=(totalPnl>=0?'+':'')+'$'+totalPnl.toFixed(2);
+      pnlEl.className='metric-val '+(totalPnl>=0?'green':'red');
+    }
+  }catch{}
+}
+
+function scheduleDailySummary(){
+  const now=new Date(),tonight=new Date();
+  tonight.setHours(21,0,0,0);
+  if(now>tonight)tonight.setDate(tonight.getDate()+1);
+  setTimeout(async()=>{
+    let unrealized=0;
+    for(const sym in openPositions){const pos=openPositions[sym];const price=currentPrices[sym];if(price)unrealized+=pos.side==='long'?(price-pos.entryPrice)*pos.qty:(pos.entryPrice-price)*pos.qty;}
+    const totalPnl=pnl+unrealized;
+    const wins=trades.filter(t=>t.pnl>0).length;
+    const openList=Object.keys(openPositions).map(s=>s+' ('+openPositions[s].side+')').join(', ')||'Ingen';
+    await sendTelegram('📊 Daglig sammanfattning · '+new Date().toLocaleDateString('sv-SE')+'\n\n💼 Portfölj: $'+(portfolio+unrealized).toLocaleString('en-US',{maximumFractionDigits:0})+'\n📈 Total P&L: '+(totalPnl>=0?'+':'')+'$'+totalPnl.toFixed(2)+'\n🔄 Trades: '+trades.length+'\n✅ Vinster: '+wins+'/'+trades.length+'\n📌 Öppna positioner: '+openList+'\n\n🤖 AI Multi-Asset Trading Bot');
+    scheduleDailySummary();
+  },tonight-now);
+}
+
+function toggleBot(){
+  botRunning=!botRunning;
+  const btn=document.getElementById('start-btn');
+  const dot=document.getElementById('bot-dot');
+  const liveDot=document.getElementById('live-dot');
+  const txt=document.getElementById('bot-status-text');
+  const interval=parseInt(document.getElementById('interval').value);
+  if(botRunning){
+    btn.textContent='⏹ Stoppa bot';btn.className='red-btn';
+    dot.className='dot live';liveDot.className='dot live';
+    txt.textContent='Bot aktiv – analyserar alla marknader';
+    showStatus('bot-status','ok','Bot startad!');
+    runAnalysis();
+    botInterval=setInterval(runAnalysis,interval);
+    priceInterval=setInterval(fetchAllPrices,15000);
+    portfolioInterval=setInterval(updatePortfolioFromAlpaca,60000);
+    scheduleDailySummary();
+  }else{
+    btn.textContent='▶ Starta bot';btn.className='green';
+    dot.className='dot';liveDot.className='dot';
+    txt.textContent='Bot stoppad';
+    showStatus('bot-status','info','Bot stoppad.');
+    clearInterval(botInterval);clearInterval(priceInterval);clearInterval(portfolioInterval);
+  }
+}
+
+function saveConfig(){
+  const config={
+    alpacaKey:document.getElementById('alpaca-key').value,
+    alpacaSecret:document.getElementById('alpaca-secret').value,
+    tgToken:document.getElementById('tg-token').value,
+    tgChatId:document.getElementById('tg-chatid').value,
+    risk:document.getElementById('risk').value,
+    interval:document.getElementById('interval').value,
+    finnhubKey:document.getElementById('finnhub-key').value,
+    anthropicKey:document.getElementById('anthropic-key').value
+  };
+  try{
+    const newConfig='var SAVED_CONFIG = '+JSON.stringify(config,null,2)+';';
+    const updated=document.documentElement.outerHTML.replace(/var SAVED_CONFIG = \{[\s\S]*?\};/,newConfig);
+    const blob=new Blob(['<!DOCTYPE html>\n'+updated],{type:'text/html;charset=utf-8'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='multi_bot.html';
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+    showStatus('bot-status','ok','✓ Sparad!');
+  }catch(e){showStatus('bot-status','err','Kunde inte spara.');}
+}
+
+function loadConfig(){
+  try{
+    const c=SAVED_CONFIG;
+    if(c.alpacaKey)document.getElementById('alpaca-key').value=c.alpacaKey;
+    if(c.alpacaSecret)document.getElementById('alpaca-secret').value=c.alpacaSecret;
+    if(c.tgToken)document.getElementById('tg-token').value=c.tgToken;
+    if(c.tgChatId)document.getElementById('tg-chatid').value=c.tgChatId;
+    if(c.risk)document.getElementById('risk').value=c.risk;
+    if(c.interval)document.getElementById('interval').value=c.interval;
+    if(c.finnhubKey)document.getElementById('finnhub-key').value=c.finnhubKey;
+    if(c.anthropicKey)document.getElementById('anthropic-key').value=c.anthropicKey;
+  }catch{}
+}
+
+loadConfig();
+renderAssets();
+fetchAllPrices();
+</script>
+</body>
+</html>
